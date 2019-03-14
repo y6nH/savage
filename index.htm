@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Savage</title>
+  <style>
+    body {max-width: 980px;
+      font: 16px/1.5 "Noto Mono", Consolas, monospace;
+      color:#556 }
+    #svgSrc {
+      width: 24em;
+      height: 36em;
+      color: #9a1;
+      background: #341;
+
+    }
+    svg {border: 1px solid #99a}
+    path {fill: #ade; stroke: #556;}
+    code {background: #dea; border-radius: 2px; margin-right: 0.5em;}
+    .flexRow{
+      display: flex; 
+      flex-direction: row;
+      border: 1px solid currentColor;
+    }
+    .flexRow>*{
+      flex: 1 1 50%;
+    }
+    .instruction {
+      padding: 0 0.5em;
+      font-weight: 700;
+    }
+    .instruction.a,
+    .instruction.c,
+    .instruction.q,
+    .instruction.s,
+    .instruction.t
+    {
+      color: #29a;
+    }
+    .instruction.m
+    {
+      color: #593;
+    }
+    .instruction.h
+    .instruction.l
+    .instruction.v
+    {
+      color: #a92;
+    }
+    .instruction.z
+    {
+      color: #a44;
+    }
+
+    .c .param:nth-of-type(2) {
+      background: #9ef;
+    }
+  </style>
+</head>
+<body>
+  <h1>SVG path explainer</h1>
+  <h2><code>d</code> attribute data</h2>
+  <div class="flexRow">
+    <textarea id="svgSrc">M84 92c-.15 11.37-2.6 23.58-12.5 30.61m2.56-92.92c17.45 2.77 37.15 10.52 46.88 26.12m-90.06 11.19c-6.9 6.39-15.08 12.75-25 12.5m0 2.56c11.15 18.22 29.23 32.45 49.83 38.14 4.16 1.24 8.4 1.86 12.67 2.67m-9.38-117.74c6.28 7.6 12.26 15 15.63 24.37 9-4.12 17.74-7.73 27.54-9.38m-11.92 95.76c2.9-8.85-2.26-16.3-6.25-23.88 15.36.22 28.58-9.66 37.01-21.88m-90.13-3.12c-10.65 0-18.17-10.36-25-18.75m25 18.75c13.49 15.2 33.9 21.04 53.12 25 1.7-19.66 1.96-40.51-7.27-58.54-2.17-7.98-10.22 1.17-14.96 2.76a96.55 96.55 0 0 0-30.9 30.78zm90.62-3.13c1.46 38.5-40.6 69.46-76.92 56.73-37.2-10-54.4-59.3-31.46-90.25 20.54-32.6 72.73-34.44 95.52-3.38a59.45 59.45 0 0 1 12.86 36.9z
+    </textarea>
+    <div id="svgParse"></div>
+  </div>
+  <button onClick="go()">Go</button>
+
+  <h2>Resulting path</h2>
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+    <path id="svgOut" d="M10 10 v50 h50 z"/>
+  </svg>
+
+  <script>
+    const elem = {
+      src: document.getElementById("svgSrc"),
+      out: document.getElementById("svgOut"),
+      parse: document.getElementById("svgParse")
+    }
+
+    const instructions = {
+      A: "Arc (absolute)",
+      a: "Arc (relative)",
+      C: "Cubic Bézier (absolute)",
+      c: "Cubic Bézier (relative)",
+      H: "Horizontal line (absolute)",
+      h: "Horizontal line (relative)",
+      L: "Line (absolute)",
+      l: "Line (relative)",
+      M: "Move (absolute)",
+      m: "Move (relative)",
+      Q: "Quadratic Bézier (absolute)",
+      q: "Quadratic Bézier (relative)",
+      S: "Cubic Bézier continuation (absolute)",
+      s: "Cubic Bézier continuation (relative)",
+      T: "Quadratic Bézier continuation (absolute)",
+      t: "Quadratic Bézier continuation (relative)",
+      V: "Vertical line (absolute)",
+      v: "Vertical line (relative)",
+      Z: "Close path",
+      z: "Close path"
+    }
+
+    analyze = (path) => {
+      // Break up commands
+      const commandRegex = new RegExp(/[a-z][\d\.\s\,\-]*/, "gi");
+      const commands = [];
+      let match;
+      while (match = commandRegex.exec(path)){
+        commands.push(match[0].trim());
+      }
+      clear(elem.src);
+      clear(elem.parse);
+
+      for (c of commands){
+        elem.src.value += c + "\n";
+        const exp = make("div", "commandExp "+ c[0].toLowerCase());
+        analyzeCommand(c).map(l => exp.appendChild(l));
+        elem.parse.appendChild(exp);
+      }
+
+      console.log(commands);
+
+    }
+
+    clear = (el) => {
+      if (el.value) {
+        el.value = "";
+      }
+      while(el.children[0]){
+        el.removeChild(el.children[0])
+      }
+    }
+
+    make = (elType, cssClass, content) => {
+      let el = document.createElement(elType);
+      (cssClass || "").split(" ").map(c => el.classList.add(c));
+      el.innerHTML = content || "";
+      return el;
+    }
+
+    analyzeCommand = (command) => {
+      let elements = [];
+      const inst = command[0];
+      elements.push(make("code", "instruction " + inst.toLowerCase(), inst));
+      elements.push(make("span", "note", instructions[inst]));
+      analyzeParams(command).map(p => {
+        elements.push(make("code", "param", p));
+      })
+      
+
+      
+
+      return elements;
+    }
+
+    analyzeParams = (command) => {
+      const inst = command[0];
+      const paramRegex = new RegExp(/-?[\d\.]+/, "g");
+      let params = [];
+      let match;
+      while (match = paramRegex.exec(command)){
+        params.push({param: match[0], type: paramType(inst, match.index)});
+      }
+      return params;
+    }
+
+    paramType = (inst, index) => {
+      let type=["param"]
+
+      switch(inst.toLowerCase()) {
+
+        case m: 
+          if (index < 2) type.push("move"); else type.push("line");
+          if (index%2 === 0) type.push("x"); else type.push("y");
+          break;
+        default:
+          return "invalid";
+      }
+    }
+
+    display = (path) => {
+      elem.out.setAttribute("d", path);
+    }
+
+    function go() {
+      let d = elem.src.value;
+      analyze(d);
+      display(d);
+    }
+
+  </script>
+
+
+
+</body>
+</html>
