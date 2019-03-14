@@ -1,0 +1,3 @@
+# SaVaGe
+
+SVG path analyzer.
